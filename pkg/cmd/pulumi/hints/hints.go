@@ -38,6 +38,7 @@ import (
 	pkgWorkspace "github.com/pulumi/pulumi/pkg/v3/workspace"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/diag/colors"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/env"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/ciutil"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/cmdutil"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
@@ -77,6 +78,9 @@ type manager struct {
 	mu         sync.Mutex
 	pending    []Hint
 	suppressed bool
+
+	// credentialFailures lists the provider packages that reported credentials errors, in order.
+	credentialFailures []tokens.Package
 
 	now       func() time.Time
 	statePath func() (string, error)

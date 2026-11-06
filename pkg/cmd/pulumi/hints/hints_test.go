@@ -24,6 +24,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/pulumi/pulumi/pkg/v3/resource/plugin"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/workspace"
 )
 
@@ -244,4 +246,48 @@ func TestLoadSettings(t *testing.T) {
 
 	t.Setenv("PULUMI_DISABLE_HINTS", "true")
 	assert.True(t, loadSettings().disabled)
+}
+
+func TestESCHintOnCredentialsFailure(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		record  map[tokens.Package]plugin.ErrorKind
+		isCloud bool
+		want    string
+	}{
+		{
+			"aws on cloud",
+			map[tokens.Package]plugin.ErrorKind{"aws": plugin.ErrorKindCredentials},
+			true,
+			"`pulumi env setup aws`",
+		},
+		{
+			"azure-native on cloud",
+			map[tokens.Package]plugin.ErrorKind{"azure-native": plugin.ErrorKindCredentials},
+			true,
+			"`pulumi env setup azure`",
+		},
+		{"aws on diy", map[tokens.Package]plugin.ErrorKind{"aws": plugin.ErrorKindCredentials}, false, ""},
+		{"unsupported package", map[tokens.Package]plugin.ErrorKind{"random": plugin.ErrorKindCredentials}, true, ""},
+		{"unspecified kind", map[tokens.Package]plugin.ErrorKind{"aws": plugin.ErrorKindUnspecified}, true, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tm := newTestManager(t)
+			tm.recordSuccessfulUpdate()
+			for pkg, kind := range tt.record {
+				tm.RecordErrorKind(pkg, kind)
+			}
+			tm.offerFailureHints(func() bool { return tt.isCloud })
+			out := tm.run()
+			if tt.want == "" {
+				assert.Empty(t, out)
+			} else {
+				assert.Contains(t, out, tt.want)
+			}
+		})
+	}
 }

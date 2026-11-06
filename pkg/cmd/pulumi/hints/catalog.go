@@ -14,7 +14,12 @@
 
 package hints
 
-import "time"
+import (
+	"fmt"
+	"time"
+
+	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
+)
 
 // AgentSkills suggests Pulumi's agent skills to AI coding agents that create a new project. It may be shown before
 // the first update, so that an agent sees it when it starts its first project.
@@ -35,4 +40,24 @@ var DriftDetection = Hint{
 	Message: "This refresh found drift. Pulumi Deployments can detect drift on a schedule and alert you, " +
 		"or fix it automatically.\nLearn more: https://www.pulumi.com/docs/deployments/concepts/drift/",
 	CloudOnly: true,
+}
+
+// escCloudForPackage maps the provider packages that ESC can supply OIDC credentials for to the cloud name
+// that `pulumi env setup` takes.
+var escCloudForPackage = map[tokens.Package]struct{ name, setup string }{
+	"aws":          {"AWS", "aws"},
+	"azure":        {"Azure", "azure"},
+	"azure-native": {"Azure", "azure"},
+	"gcp":          {"Google Cloud", "gcp"},
+}
+
+// ESCCredentials suggests Pulumi ESC after a provider for one of the supported clouds reports a credentials error.
+func ESCCredentials(cloudName, setupName string) Hint {
+	return Hint{
+		ID:       "esc-credentials",
+		Cooldown: 24 * time.Hour,
+		Message: fmt.Sprintf("Pulumi ESC can give your stacks short-lived %s credentials through OIDC. "+
+			"To set it up, run `pulumi env setup %s`. "+
+			"Learn more: https://www.pulumi.com/docs/esc/guides/configuring-oidc/", cloudName, setupName),
+	}
 }
