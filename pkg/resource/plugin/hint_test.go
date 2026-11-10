@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"sync"
 	"testing"
 
@@ -27,7 +26,6 @@ import (
 	"google.golang.org/grpc/codes"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource"
-	"github.com/pulumi/pulumi/sdk/v3/go/common/testing/diagtest"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/rpcutil/rpcerror"
 	"github.com/pulumi/pulumi/sdk/v3/go/property"
@@ -72,15 +70,10 @@ func TestHintOf(t *testing.T) {
 	}
 }
 
-// newHintTestContext returns a plugin context that reports hints to rec. The engine calls providers with detached
-// contexts, so providers find the recorder through the plugin context.
+// newHintTestContext returns a plugin context that reports hints to rec.
 func newHintTestContext(t *testing.T, rec HintRecorder) *Context {
-	cwd, err := os.Getwd()
-	require.NoError(t, err)
-	sink := diagtest.LogSink(t)
-	pctx, err := NewContext(WithHintRecorder(t.Context(), rec), sink, sink,
-		&MockHost{}, nil /* source */, cwd, nil /* options */, false, nil, nil /* span */)
-	require.NoError(t, err)
+	pctx := newTestContext(t)
+	pctx.HintRecorder = rec
 	return pctx
 }
 

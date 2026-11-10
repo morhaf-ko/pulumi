@@ -15,17 +15,13 @@
 package hints
 
 import (
-	"context"
-
 	"github.com/pulumi/pulumi/pkg/v3/resource/plugin"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
 )
 
-// WithFailureRecorder returns a context whose providers report the hints for their failures, such as dynamic
-// credentials, to this process's hints.
-func WithFailureRecorder(ctx context.Context) context.Context {
-	return plugin.WithHintRecorder(ctx, defaultManager)
-}
+// Recorder returns the recorder that turns the hints providers report for their failures, such as dynamic
+// credentials, into this process's hints. Commands set it as the HintRecorder of the plugin contexts they create.
+func Recorder() plugin.HintRecorder { return defaultManager }
 
 // RecordHint implements plugin.HintRecorder. It offers the CLI hint for a hint that a provider sent.
 func (m *manager) RecordHint(pkg tokens.Package, hint plugin.Hint) {

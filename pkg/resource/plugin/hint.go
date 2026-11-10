@@ -15,7 +15,6 @@
 package plugin
 
 import (
-	"context"
 	"errors"
 	"strings"
 
@@ -88,29 +87,15 @@ func WithHint(err error, hint Hint) error {
 	return rpcerror.WithDetails(err, &pulumirpc.HintDetail{Hint: hint.rpc()})
 }
 
-// HintRecorder is told about each hint that a provider reports for a failure during an operation.
+// HintRecorder is told about each hint that a provider reports for a failure. Set it on [Context.HintRecorder].
 type HintRecorder interface {
 	RecordHint(pkg tokens.Package, hint Hint)
 }
 
-type hintRecorderKey struct{}
-
-// WithHintRecorder returns a context that reports hints to r. Providers loaded with a plugin [Context] whose base
-// context is this one report the hints for their failures to r.
-func WithHintRecorder(ctx context.Context, r HintRecorder) context.Context {
-	return context.WithValue(ctx, hintRecorderKey{}, r)
-}
-
-// recordHint reports hint to the recorder of the plugin context the provider was loaded with, if there is one,
-// for the package of typ. typ is a resource type such as aws:s3:Bucket or a provider type such as
-// pulumi:providers:aws. The recorder comes from the plugin context because the engine calls providers with a
-// detached context.
+// recordHint reports hint to the hint recorder of the provider's plugin context, if there is one, for the package of
+// typ. typ is a resource type such as aws:s3:Bucket or a provider type such as pulumi:providers:aws.
 func (p *provider) recordHint(typ tokens.Type, hint Hint) {
-	if hint == HintUnspecified || p.ctx == nil {
-		return
-	}
-	r, ok := p.ctx.Base().Value(hintRecorderKey{}).(HintRecorder)
-	if !ok {
+	if hint == HintUnspecified || p.ctx == nil || p.ctx.HintRecorder == nil {
 		return
 	}
 	var pkg tokens.Package
@@ -121,5 +106,5 @@ func (p *provider) recordHint(typ tokens.Type, hint Hint) {
 		name, _, _ := strings.Cut(string(typ), ":")
 		pkg = tokens.Package(name)
 	}
-	r.RecordHint(pkg, hint)
+	p.ctx.HintRecorder.RecordHint(pkg, hint)
 }
