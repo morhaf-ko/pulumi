@@ -42,22 +42,22 @@ var DriftDetection = Hint{
 	CloudOnly: true,
 }
 
-// escCloudForPackage maps the provider packages that ESC can supply OIDC credentials for to the cloud name
-// that `pulumi env setup` takes.
-var escCloudForPackage = map[tokens.Package]struct{ name, setup string }{
-	"aws":          {"AWS", "aws"},
-	"azure":        {"Azure", "azure"},
-	"azure-native": {"Azure", "azure"},
-	"gcp":          {"Google Cloud", "gcp"},
+// escCredentials holds, for each provider package that Pulumi ESC can supply OIDC credentials for, the hint that
+// suggests ESC when the provider says dynamic credentials may help with a failure.
+var escCredentials = map[tokens.Package]Hint{
+	"aws":          escCredentialsHint("AWS", "aws"),
+	"azure":        escCredentialsHint("Azure", "azure"),
+	"azure-native": escCredentialsHint("Azure", "azure"),
+	"gcp":          escCredentialsHint("Google Cloud", "gcp"),
 }
 
-// ESCCredentials suggests Pulumi ESC after a provider for one of the supported clouds reports a credentials error.
-func ESCCredentials(cloudName, setupName string) Hint {
+func escCredentialsHint(cloudName, setupName string) Hint {
 	return Hint{
 		ID:       "esc-credentials",
 		Cooldown: 24 * time.Hour,
 		Message: fmt.Sprintf("Pulumi ESC can give your stacks short-lived %s credentials through OIDC. "+
 			"To set it up, run `pulumi env setup %s`. "+
 			"Learn more: https://www.pulumi.com/docs/esc/guides/configuring-oidc/", cloudName, setupName),
+		CloudOnly: true,
 	}
 }

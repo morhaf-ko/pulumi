@@ -16,74 +16,23 @@ package hints
 
 import (
 	"context"
-	"log/slog"
-	"os"
-	"slices"
 
-	"github.com/pulumi/pulumi/pkg/v3/backend/diy"
 	"github.com/pulumi/pulumi/pkg/v3/resource/plugin"
-	pkgWorkspace "github.com/pulumi/pulumi/pkg/v3/workspace"
-	"github.com/pulumi/pulumi/sdk/v3/go/common/env"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
-	"github.com/pulumi/pulumi/sdk/v3/go/common/workspace"
 )
 
-// WithFailureRecorder returns a context whose provider calls report the hints for their failures, such as dynamic
+// WithFailureRecorder returns a context whose providers report the hints for their failures, such as dynamic
 // credentials, to this process's hints.
 func WithFailureRecorder(ctx context.Context) context.Context {
 	return plugin.WithHintRecorder(ctx, defaultManager)
 }
 
-// OfferFailureHints offers hints for the failures that providers reported during this command. It is
-// called when the command fails.
-func OfferFailureHints() { defaultManager.offerFailureHints(isCloudBackend) }
-
-// RecordHint implements plugin.HintRecorder.
+// RecordHint implements plugin.HintRecorder. It offers the CLI hint for a hint that a provider sent.
 func (m *manager) RecordHint(pkg tokens.Package, hint plugin.Hint) {
 	if hint != plugin.HintDynamicCredentials {
 		return
 	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if !slices.Contains(m.dynamicCredentialsHints, pkg) {
-		m.dynamicCredentialsHints = append(m.dynamicCredentialsHints, pkg)
+	if h, ok := escCredentials[pkg]; ok {
+		m.offer(h)
 	}
-}
-
-func (m *manager) offerFailureHints(isCloud func() bool) {
-	m.mu.Lock()
-	failures := slices.Clone(m.dynamicCredentialsHints)
-	m.mu.Unlock()
-
-	for _, pkg := range failures {
-		cloud, ok := escCloudForPackage[pkg]
-		if !ok {
-			continue
-		}
-		// ESC needs Pulumi Cloud, so only suggest it to Pulumi Cloud users.
-		if !isCloud() {
-			slog.Info("not suggesting ESC: the backend is not Pulumi Cloud", "package", pkg)
-			return
-		}
-		m.offer(ESCCredentials(cloud.name, cloud.setup))
-		return
-	}
-}
-
-// isCloudBackend reports whether the current project uses a Pulumi Cloud backend, without contacting it.
-func isCloudBackend() bool {
-	ws := pkgWorkspace.Instance
-	// A project may configure its own backend. Without one, the user's current login applies.
-	var proj *workspace.Project
-	if cwd, err := os.Getwd(); err == nil {
-		if p, _, err := ws.ReadProject(cwd); err == nil {
-			proj = p
-		}
-	}
-	url, err := pkgWorkspace.GetCurrentCloudURL(ws, env.Global(), proj)
-	if err != nil {
-		slog.Info("could not determine backend for hints", "err", err)
-		return false
-	}
-	return url != "" && !diy.IsDIYBackendURL(url)
 }

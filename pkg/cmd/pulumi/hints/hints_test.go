@@ -278,10 +278,10 @@ func TestESCHintOnCredentialsFailure(t *testing.T) {
 			t.Parallel()
 			tm := newTestManager(t)
 			tm.recordSuccessfulUpdate()
+			tm.local = !tt.isCloud
 			for pkg, hint := range tt.record {
 				tm.RecordHint(pkg, hint)
 			}
-			tm.offerFailureHints(func() bool { return tt.isCloud })
 			out := tm.run()
 			if tt.want == "" {
 				assert.Empty(t, out)
