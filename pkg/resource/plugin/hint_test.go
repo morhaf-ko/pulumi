@@ -72,6 +72,18 @@ func TestHintOf(t *testing.T) {
 	}
 }
 
+// newHintTestContext returns a plugin context that reports hints to rec. The engine calls providers with detached
+// contexts, so providers find the recorder through the plugin context.
+func newHintTestContext(t *testing.T, rec HintRecorder) *Context {
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	sink := diagtest.LogSink(t)
+	pctx, err := NewContext(WithHintRecorder(t.Context(), rec), sink, sink,
+		&MockHost{}, nil /* source */, cwd, nil /* options */, false, nil, nil /* span */)
+	require.NoError(t, err)
+	return pctx
+}
+
 func TestProviderRecordsCheckConfigFailureHint(t *testing.T) {
 	t.Parallel()
 
@@ -83,10 +95,10 @@ func TestProviderRecordsCheckConfigFailureHint(t *testing.T) {
 			}}, nil
 		},
 	}
-	p := NewProviderWithClient(newTestContext(t), client, false /* disablePreview */)
-
 	rec := &testRecorder{}
-	resp, err := p.CheckConfig(WithHintRecorder(t.Context(), rec), CheckConfigRequest{
+	p := NewProviderWithClient(newHintTestContext(t, rec), client, false /* disablePreview */)
+
+	resp, err := p.CheckConfig(t.Context(), CheckConfigRequest{
 		URN:  resource.NewURN("stack", "proj", "", "pulumi:providers:aws", "default"),
 		News: property.Map{},
 	})
@@ -97,29 +109,45 @@ func TestProviderRecordsCheckConfigFailureHint(t *testing.T) {
 	assert.Equal(t, map[tokens.Package]Hint{"aws": HintDynamicCredentials}, rec.seen)
 }
 
-func TestProviderRecordsConfigureErrorHintViaPluginContext(t *testing.T) {
+func TestProviderRecordsConfigureErrorHint(t *testing.T) {
 	t.Parallel()
-
-	// The engine calls providers with detached contexts, so the recorder is found through the plugin context.
-	rec := &testRecorder{}
-	cwd, err := os.Getwd()
-	require.NoError(t, err)
-	sink := diagtest.LogSink(t)
-	pctx, err := NewContext(WithHintRecorder(t.Context(), rec), sink, sink,
-		&MockHost{}, nil /* source */, cwd, nil /* options */, false, nil, nil /* span */)
-	require.NoError(t, err)
 
 	client := &stubClient{
 		ConfigureF: func(*pulumirpc.ConfigureRequest) (*pulumirpc.ConfigureResponse, error) {
 			return nil, WithHint(rpcerror.New(codes.Unauthenticated, "expired token"), HintDynamicCredentials)
 		},
 	}
-	p := NewProviderWithClient(pctx, client, false /* disablePreview */)
+	rec := &testRecorder{}
+	p := NewProviderWithClient(newHintTestContext(t, rec), client, false /* disablePreview */)
 
-	_, err = p.Configure(t.Context(), ConfigureRequest{Type: new(tokens.Type("pulumi:providers:gcp"))})
+	_, err := p.Configure(t.Context(), ConfigureRequest{Type: new(tokens.Type("pulumi:providers:gcp"))})
 	require.ErrorContains(t, err, "expired token")
 	assert.Equal(t, HintDynamicCredentials, HintOf(err))
 	assert.Equal(t, map[tokens.Package]Hint{"gcp": HintDynamicCredentials}, rec.seen)
+}
+
+func TestProviderRecordsCreateErrorHint(t *testing.T) {
+	t.Parallel()
+
+	client := &stubClient{
+		ConfigureF: func(*pulumirpc.ConfigureRequest) (*pulumirpc.ConfigureResponse, error) {
+			return &pulumirpc.ConfigureResponse{}, nil
+		},
+		CreateF: func(*pulumirpc.CreateRequest) (*pulumirpc.CreateResponse, error) {
+			return nil, WithHint(rpcerror.New(codes.Unauthenticated, "expired token"), HintDynamicCredentials)
+		},
+	}
+	rec := &testRecorder{}
+	p := NewProviderWithClient(newHintTestContext(t, rec), client, false /* disablePreview */)
+	_, err := p.Configure(t.Context(), ConfigureRequest{Type: new(tokens.Type("pulumi:providers:aws"))})
+	require.NoError(t, err)
+
+	_, err = p.Create(t.Context(), CreateRequest{
+		URN:        resource.NewURN("stack", "proj", "", "aws:s3/bucket:Bucket", "b"),
+		Properties: property.Map{},
+	})
+	require.ErrorContains(t, err, "expired token")
+	assert.Equal(t, map[tokens.Package]Hint{"aws": HintDynamicCredentials}, rec.seen)
 }
 
 func TestProviderServerSendsCheckFailureHint(t *testing.T) {

@@ -367,10 +367,7 @@ func (p *providerServer) CheckConfig(ctx context.Context,
 	}
 	rpcInputs := propertyrpc.Marshal(filteredInputs)
 
-	rpcFailures := make([]*pulumirpc.CheckFailure, len(resp.Failures))
-	for i, f := range resp.Failures {
-		rpcFailures[i] = &pulumirpc.CheckFailure{Property: string(f.Property), Reason: f.Reason, Hint: f.Hint.rpc()}
-	}
+	rpcFailures := checkFailuresToRPC(resp.Failures)
 
 	return &pulumirpc.CheckResponse{Inputs: rpcInputs, Failures: rpcFailures}, nil
 }
@@ -583,10 +580,7 @@ func (p *providerServer) Check(ctx context.Context, req *pulumirpc.CheckRequest)
 	}
 	rpcInputs := propertyrpc.Marshal(filteredInputs)
 
-	rpcFailures := make([]*pulumirpc.CheckFailure, len(resp.Failures))
-	for i, f := range resp.Failures {
-		rpcFailures[i] = &pulumirpc.CheckFailure{Property: string(f.Property), Reason: f.Reason, Hint: f.Hint.rpc()}
-	}
+	rpcFailures := checkFailuresToRPC(resp.Failures)
 
 	return &pulumirpc.CheckResponse{Inputs: rpcInputs, Failures: rpcFailures}, nil
 }
@@ -1170,10 +1164,7 @@ func (p *providerServer) Invoke(ctx context.Context, req *pulumirpc.InvokeReques
 	}
 	rpcResult := propertyrpc.Marshal(filteredResult)
 
-	rpcFailures := make([]*pulumirpc.CheckFailure, len(resp.Failures))
-	for i, f := range resp.Failures {
-		rpcFailures[i] = &pulumirpc.CheckFailure{Property: string(f.Property), Reason: f.Reason, Hint: f.Hint.rpc()}
-	}
+	rpcFailures := checkFailuresToRPC(resp.Failures)
 
 	return &pulumirpc.InvokeResponse{
 		Return:   rpcResult,
@@ -1248,10 +1239,7 @@ func (p *providerServer) Call(ctx context.Context, req *pulumirpc.CallRequest) (
 		returnDependencies[string(name)] = &pulumirpc.CallResponse_ReturnDependencies{Urns: urns}
 	}
 
-	rpcFailures := make([]*pulumirpc.CheckFailure, len(result.Failures))
-	for i, f := range result.Failures {
-		rpcFailures[i] = &pulumirpc.CheckFailure{Property: string(f.Property), Reason: f.Reason, Hint: f.Hint.rpc()}
-	}
+	rpcFailures := checkFailuresToRPC(result.Failures)
 
 	return &pulumirpc.CallResponse{
 		Return:             rpcResult,
@@ -1326,4 +1314,13 @@ func unmarshalView(v *pulumirpc.View, opts FilterOptions) (View, error) {
 		Inputs:     inputs,
 		Outputs:    outputs,
 	}, nil
+}
+
+// checkFailuresToRPC converts check failures for a provider's response.
+func checkFailuresToRPC(failures []CheckFailure) []*pulumirpc.CheckFailure {
+	rpcFailures := make([]*pulumirpc.CheckFailure, len(failures))
+	for i, f := range failures {
+		rpcFailures[i] = &pulumirpc.CheckFailure{Property: string(f.Property), Reason: f.Reason, Hint: f.Hint.rpc()}
+	}
+	return rpcFailures
 }

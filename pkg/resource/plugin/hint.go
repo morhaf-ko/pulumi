@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/common/providers"
-	"github.com/pulumi/pulumi/sdk/v3/go/common/resource"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/rpcutil/rpcerror"
 	pulumirpc "github.com/pulumi/pulumi/sdk/v3/proto/go"
@@ -96,50 +95,31 @@ type HintRecorder interface {
 
 type hintRecorderKey struct{}
 
-// WithHintRecorder returns a context whose provider calls report the hints for their failures to r.
+// WithHintRecorder returns a context that reports hints to r. Providers loaded with a plugin [Context] whose base
+// context is this one report the hints for their failures to r.
 func WithHintRecorder(ctx context.Context, r HintRecorder) context.Context {
 	return context.WithValue(ctx, hintRecorderKey{}, r)
 }
 
-// recordHint reports hint for pkg to the recorder in ctx, if there is one and hint is specified.
-func recordHint(ctx context.Context, pkg tokens.Package, hint Hint) {
-	if hint == HintUnspecified || ctx == nil {
+// recordHint reports hint to the recorder of the plugin context the provider was loaded with, if there is one,
+// for the package of typ. typ is a resource type such as aws:s3:Bucket or a provider type such as
+// pulumi:providers:aws. The recorder comes from the plugin context because the engine calls providers with a
+// detached context.
+func (p *provider) recordHint(typ tokens.Type, hint Hint) {
+	if hint == HintUnspecified || p.ctx == nil {
 		return
 	}
-	if r, ok := ctx.Value(hintRecorderKey{}).(HintRecorder); ok {
-		r.RecordHint(pkg, hint)
-	}
-}
-
-// recordHint reports hint for pkg to the recorder of the call's ctx or, since the engine often calls providers
-// with a detached context, to the recorder of the plugin context the provider was loaded with.
-func (p *provider) recordHint(ctx context.Context, pkg tokens.Package, hint Hint) {
-	if ctx != nil {
-		if _, ok := ctx.Value(hintRecorderKey{}).(HintRecorder); ok {
-			recordHint(ctx, pkg, hint)
-			return
-		}
-	}
-	if p.ctx != nil {
-		recordHint(p.ctx.Base(), pkg, hint)
-	}
-}
-
-// recordResourceHint reports the hint attached to err, if any, for the package of the resource urn.
-func (p *provider) recordResourceHint(ctx context.Context, urn resource.URN, err error) {
-	hint := HintOf(err)
-	if hint == HintUnspecified {
+	r, ok := p.ctx.Base().Value(hintRecorderKey{}).(HintRecorder)
+	if !ok {
 		return
 	}
-	// Avoid tokens.Type.Package, which asserts that the token is well formed.
-	pkg, _, _ := strings.Cut(string(urn.Type()), ":")
-	p.recordHint(ctx, tokens.Package(pkg), hint)
-}
-
-// recordProviderHint reports hint, if specified, for the package of the provider type typ.
-func (p *provider) recordProviderHint(ctx context.Context, typ tokens.Type, hint Hint) {
-	if hint == HintUnspecified || !providers.IsProviderType(typ) {
-		return
+	var pkg tokens.Package
+	if providers.IsProviderType(typ) {
+		pkg = providers.GetProviderPackage(typ)
+	} else {
+		// Avoid tokens.Type.Package, which asserts that the token is well formed.
+		name, _, _ := strings.Cut(string(typ), ":")
+		pkg = tokens.Package(name)
 	}
-	p.recordHint(ctx, providers.GetProviderPackage(typ), hint)
+	r.RecordHint(pkg, hint)
 }

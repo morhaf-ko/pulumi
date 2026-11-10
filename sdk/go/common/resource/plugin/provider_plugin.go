@@ -738,14 +738,7 @@ func (p *provider) CheckConfig(ctx context.Context, req CheckConfigRequest) (Che
 	}
 
 	// And now any properties that failed verification.
-	failures := slice.Prealloc[CheckFailure](len(resp.GetFailures()))
-	for _, failure := range resp.GetFailures() {
-		failures = append(failures, CheckFailure{
-			Property: resource.PropertyKey(failure.Property),
-			Reason:   failure.Reason,
-			Hint:     hintFromRPC(failure.GetHint()),
-		})
-	}
+	failures := checkFailuresFromRPC(resp.GetFailures())
 
 	// Copy over any secret annotations, since we could not pass any to the provider, and return.
 	annotateSecrets(inputs, req.News)
@@ -1270,14 +1263,7 @@ func (p *provider) Check(ctx context.Context, req CheckRequest) (CheckResponse, 
 	}
 
 	// And now any properties that failed verification.
-	failures := slice.Prealloc[CheckFailure](len(resp.GetFailures()))
-	for _, failure := range resp.GetFailures() {
-		failures = append(failures, CheckFailure{
-			Property: resource.PropertyKey(failure.Property),
-			Reason:   failure.Reason,
-			Hint:     hintFromRPC(failure.GetHint()),
-		})
-	}
+	failures := checkFailuresFromRPC(resp.GetFailures())
 
 	logging.V(7).Infof("%s success: inputs=#%d failures=#%d", label, len(inputs), len(failures))
 	return CheckResponse{Properties: inputs, Failures: failures}, nil
@@ -2277,14 +2263,7 @@ func (p *provider) Invoke(ctx context.Context, req InvokeRequest) (InvokeRespons
 	}
 
 	// And now any properties that failed verification.
-	failures := slice.Prealloc[CheckFailure](len(resp.GetFailures()))
-	for _, failure := range resp.GetFailures() {
-		failures = append(failures, CheckFailure{
-			Property: resource.PropertyKey(failure.Property),
-			Reason:   failure.Reason,
-			Hint:     hintFromRPC(failure.GetHint()),
-		})
-	}
+	failures := checkFailuresFromRPC(resp.GetFailures())
 
 	if req.Args.ContainsSecrets() && !protocol.acceptSecrets {
 		for k, v := range ret {
@@ -2394,14 +2373,7 @@ func (p *provider) Call(_ context.Context, req CallRequest) (CallResponse, error
 	}
 
 	// And now any properties that failed verification.
-	failures := slice.Prealloc[CheckFailure](len(resp.GetFailures()))
-	for _, failure := range resp.GetFailures() {
-		failures = append(failures, CheckFailure{
-			Property: resource.PropertyKey(failure.Property),
-			Reason:   failure.Reason,
-			Hint:     hintFromRPC(failure.GetHint()),
-		})
-	}
+	failures := checkFailuresFromRPC(resp.GetFailures())
 
 	logging.V(7).Infof("%s success (#ret=%d,#failures=%d) success", label, len(ret), len(failures))
 	return CallResult{Return: ret, ReturnDependencies: returnDependencies, Failures: failures}, nil
@@ -2711,4 +2683,17 @@ func marshalView(v View, opts MarshalOptions) (*pulumirpc.View, error) {
 		Inputs:     inputs,
 		Outputs:    outputs,
 	}, nil
+}
+
+// checkFailuresFromRPC converts the check failures in a provider's response.
+func checkFailuresFromRPC(rpcFailures []*pulumirpc.CheckFailure) []CheckFailure {
+	failures := slice.Prealloc[CheckFailure](len(rpcFailures))
+	for _, f := range rpcFailures {
+		failures = append(failures, CheckFailure{
+			Property: resource.PropertyKey(f.GetProperty()),
+			Reason:   f.GetReason(),
+			Hint:     hintFromRPC(f.GetHint()),
+		})
+	}
+	return failures
 }

@@ -746,7 +746,7 @@ func (p *provider) CheckConfig(ctx context.Context, req CheckConfigRequest) (Che
 		}
 		logging.V(8).Infof("%s provider received rpc error `%s`: `%s`", label, rpcError.Code(),
 			rpcError.Message())
-		p.recordProviderHint(ctx, req.URN.Type(), HintOf(err))
+		p.recordHint(req.URN.Type(), HintOf(err))
 		return CheckConfigResponse{}, err
 	}
 
@@ -769,17 +769,9 @@ func (p *provider) CheckConfig(ctx context.Context, req CheckConfigRequest) (Che
 	}
 
 	// And now any properties that failed verification.
-	failures := slice.Prealloc[CheckFailure](len(resp.GetFailures()))
-	for _, failure := range resp.GetFailures() {
-		failures = append(failures, CheckFailure{
-			Property: resource.PropertyKey(failure.Property),
-			Reason:   failure.Reason,
-			Hint:     hintFromRPC(failure.GetHint()),
-		})
-	}
-
+	failures := checkFailuresFromRPC(resp.GetFailures())
 	for _, failure := range failures {
-		p.recordProviderHint(ctx, req.URN.Type(), failure.Hint)
+		p.recordHint(req.URN.Type(), failure.Hint)
 	}
 
 	// Copy over any secret annotations, since we could not pass any to the provider, and return.
@@ -1157,7 +1149,7 @@ func (p *provider) Configure(ctx context.Context, req ConfigureRequest) (Configu
 	if err != nil {
 		rpcError := rpcerror.Convert(err)
 		logging.V(7).Infof("%s failed: err=%v", label, rpcError.Message())
-		p.recordHint(ctx, pkg, HintOf(err))
+		p.recordHint(*req.Type, HintOf(err))
 		err = createConfigureError(rpcError)
 		p.configSource.MustReject(err)
 		return ConfigureResponse{}, err
@@ -1302,14 +1294,7 @@ func (p *provider) Check(ctx context.Context, req CheckRequest) (CheckResponse, 
 	}
 
 	// And now any properties that failed verification.
-	failures := slice.Prealloc[CheckFailure](len(resp.GetFailures()))
-	for _, failure := range resp.GetFailures() {
-		failures = append(failures, CheckFailure{
-			Property: resource.PropertyKey(failure.Property),
-			Reason:   failure.Reason,
-			Hint:     hintFromRPC(failure.GetHint()),
-		})
-	}
+	failures := checkFailuresFromRPC(resp.GetFailures())
 
 	logging.V(7).Infof("%s success: inputs=#%d failures=#%d", label, inputs.Len(), len(failures))
 	return CheckResponse{Properties: inputs, Failures: failures}, nil
@@ -1500,7 +1485,7 @@ func (p *provider) Create(ctx context.Context, req CreateRequest) (CreateRespons
 		ResourceStatusToken:   req.ResourceStatusToken,
 	})
 	if err != nil {
-		p.recordResourceHint(ctx, req.URN, err)
+		p.recordHint(req.URN.Type(), HintOf(err))
 		resourceStatus, id, liveObject, _, refreshBeforeUpdate, resourceError = parseError(err)
 		logging.V(7).Infof("%s failed: %v", label, resourceError)
 
@@ -1634,7 +1619,7 @@ func (p *provider) Read(ctx context.Context, req ReadRequest) (ReadResponse, err
 		OldViews:              oldViews,
 	})
 	if err != nil {
-		p.recordResourceHint(ctx, req.URN, err)
+		p.recordHint(req.URN.Type(), HintOf(err))
 		resourceStatus, readID, liveObject, liveInputs, refreshBeforeUpdate, resourceError = parseError(err)
 		logging.V(7).Infof("%s failed: %v", label, err)
 
@@ -1831,7 +1816,7 @@ func (p *provider) Update(ctx context.Context, req UpdateRequest) (UpdateRespons
 		OldViews:              oldViews,
 	})
 	if err != nil {
-		p.recordResourceHint(ctx, req.URN, err)
+		p.recordHint(req.URN.Type(), HintOf(err))
 		resourceStatus, _, liveObject, _, refreshBeforeUpdate, resourceError = parseError(err)
 		logging.V(7).Infof("%s failed: %v", label, resourceError)
 
@@ -2355,14 +2340,7 @@ func (p *provider) Invoke(ctx context.Context, req InvokeRequest) (InvokeRespons
 	}
 
 	// And now any properties that failed verification.
-	failures := slice.Prealloc[CheckFailure](len(resp.GetFailures()))
-	for _, failure := range resp.GetFailures() {
-		failures = append(failures, CheckFailure{
-			Property: resource.PropertyKey(failure.Property),
-			Reason:   failure.Reason,
-			Hint:     hintFromRPC(failure.GetHint()),
-		})
-	}
+	failures := checkFailuresFromRPC(resp.GetFailures())
 
 	result := ret.AsMap()
 	if req.Args.HasSecrets() && !protocol.acceptSecrets {
@@ -2502,14 +2480,7 @@ func (p *provider) Call(_ context.Context, req CallRequest) (CallResponse, error
 	}
 
 	// And now any properties that failed verification.
-	failures := slice.Prealloc[CheckFailure](len(resp.GetFailures()))
-	for _, failure := range resp.GetFailures() {
-		failures = append(failures, CheckFailure{
-			Property: resource.PropertyKey(failure.Property),
-			Reason:   failure.Reason,
-			Hint:     hintFromRPC(failure.GetHint()),
-		})
-	}
+	failures := checkFailuresFromRPC(resp.GetFailures())
 
 	logging.V(7).Infof("%s success (#ret=%d,#failures=%d) success", label, ret.Len(), len(failures))
 	return CallResult{
@@ -2832,4 +2803,17 @@ func marshalView(v View, opts FilterOptions) (*pulumirpc.View, error) {
 		Inputs:     inputs,
 		Outputs:    outputs,
 	}, nil
+}
+
+// checkFailuresFromRPC converts the check failures in a provider's response.
+func checkFailuresFromRPC(rpcFailures []*pulumirpc.CheckFailure) []CheckFailure {
+	failures := slice.Prealloc[CheckFailure](len(rpcFailures))
+	for _, f := range rpcFailures {
+		failures = append(failures, CheckFailure{
+			Property: resource.PropertyKey(f.GetProperty()),
+			Reason:   f.GetReason(),
+			Hint:     hintFromRPC(f.GetHint()),
+		})
+	}
+	return failures
 }
