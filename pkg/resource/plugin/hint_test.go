@@ -117,7 +117,7 @@ func TestProviderRecordsConfigureErrorHintViaPluginContext(t *testing.T) {
 	p := NewProviderWithClient(pctx, client, false /* disablePreview */)
 
 	_, err = p.Configure(t.Context(), ConfigureRequest{Type: new(tokens.Type("pulumi:providers:gcp"))})
-	require.Error(t, err)
+	require.ErrorContains(t, err, "expired token")
 	assert.Equal(t, HintDynamicCredentials, HintOf(err))
 	assert.Equal(t, map[tokens.Package]Hint{"gcp": HintDynamicCredentials}, rec.seen)
 }
