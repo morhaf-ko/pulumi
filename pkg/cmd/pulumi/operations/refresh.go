@@ -27,7 +27,6 @@ import (
 	"github.com/pulumi/pulumi/pkg/v3/backend"
 	"github.com/pulumi/pulumi/pkg/v3/backend/backenderr"
 	"github.com/pulumi/pulumi/pkg/v3/backend/display"
-	"github.com/pulumi/pulumi/pkg/v3/backend/httpstate"
 	cmdBackend "github.com/pulumi/pulumi/pkg/v3/cmd/pulumi/backend"
 	"github.com/pulumi/pulumi/pkg/v3/cmd/pulumi/config"
 	"github.com/pulumi/pulumi/pkg/v3/cmd/pulumi/constrictor"
@@ -375,10 +374,7 @@ func NewRefreshCmd() *cobra.Command {
 				CoherenceWindow:    coherenceWindow,
 			})
 			if err == nil && changes != nil && engine.HasChanges(changes) {
-				// Drift Detection is a Pulumi Cloud feature, so only suggest it to Pulumi Cloud users.
-				if _, isCloud := s.Backend().(httpstate.Backend); isCloud {
-					hints.Offer(hints.DriftDetection)
-				}
+				hints.Offer(hints.DriftDetection)
 			}
 
 			switch {
