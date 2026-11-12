@@ -16,18 +16,13 @@ package plugin
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc/codes"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource"
-	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
-	"github.com/pulumi/pulumi/sdk/v3/go/common/util/rpcutil/rpcerror"
 	"github.com/pulumi/pulumi/sdk/v3/go/property"
 	pulumirpc "github.com/pulumi/pulumi/sdk/v3/proto/go"
 )
@@ -49,31 +44,6 @@ func (r *testRecorder) RecordHint(hint Hint, message string) {
 }
 
 var escHint = recordedHint{HintDynamicCredentials, "use ESC"}
-
-func TestHintOf(t *testing.T) {
-	t.Parallel()
-
-	credsErr := WithHint(rpcerror.New(codes.Unauthenticated, "expired token"), HintDynamicCredentials, "use ESC")
-
-	tests := []struct {
-		name string
-		err  error
-		want recordedHint
-	}{
-		{"nil", nil, recordedHint{}},
-		{"plain error", errors.New("boom"), recordedHint{}},
-		{"status without detail", rpcerror.New(codes.Unauthenticated, "boom"), recordedHint{}},
-		{"status with detail", credsErr, escHint},
-		{"converted and wrapped", fmt.Errorf("configure: %w", rpcerror.Convert(credsErr)), escHint},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			hint, message := HintOf(tt.err)
-			assert.Equal(t, tt.want, recordedHint{hint, message})
-		})
-	}
-}
 
 // newHintTestContext returns a plugin context that reports hints to rec.
 func newHintTestContext(t *testing.T, rec HintRecorder) *Context {
@@ -105,46 +75,6 @@ func TestProviderRecordsCheckConfigFailureHint(t *testing.T) {
 	assert.Equal(t, HintUnspecified, resp.Failures[0].Hint)
 	assert.Equal(t, HintDynamicCredentials, resp.Failures[1].Hint)
 	assert.Equal(t, "use ESC", resp.Failures[1].HintMessage)
-	assert.Equal(t, []recordedHint{escHint}, rec.seen)
-}
-
-func TestProviderRecordsConfigureErrorHint(t *testing.T) {
-	t.Parallel()
-
-	client := &stubClient{
-		ConfigureF: func(*pulumirpc.ConfigureRequest) (*pulumirpc.ConfigureResponse, error) {
-			return nil, WithHint(rpcerror.New(codes.Unauthenticated, "expired token"), HintDynamicCredentials, "use ESC")
-		},
-	}
-	rec := &testRecorder{}
-	p := NewProviderWithClient(newHintTestContext(t, rec), client, false /* disablePreview */)
-
-	_, err := p.Configure(t.Context(), ConfigureRequest{Type: new(tokens.Type("pulumi:providers:gcp"))})
-	require.ErrorContains(t, err, "expired token")
-	assert.Equal(t, []recordedHint{escHint}, rec.seen)
-}
-
-func TestProviderRecordsCreateErrorHint(t *testing.T) {
-	t.Parallel()
-
-	client := &stubClient{
-		ConfigureF: func(*pulumirpc.ConfigureRequest) (*pulumirpc.ConfigureResponse, error) {
-			return &pulumirpc.ConfigureResponse{}, nil
-		},
-		CreateF: func(*pulumirpc.CreateRequest) (*pulumirpc.CreateResponse, error) {
-			return nil, WithHint(rpcerror.New(codes.Unauthenticated, "expired token"), HintDynamicCredentials, "use ESC")
-		},
-	}
-	rec := &testRecorder{}
-	p := NewProviderWithClient(newHintTestContext(t, rec), client, false /* disablePreview */)
-	_, err := p.Configure(t.Context(), ConfigureRequest{Type: new(tokens.Type("pulumi:providers:aws"))})
-	require.NoError(t, err)
-
-	_, err = p.Create(t.Context(), CreateRequest{
-		URN:        resource.NewURN("stack", "proj", "", "aws:s3/bucket:Bucket", "b"),
-		Properties: property.Map{},
-	})
-	require.ErrorContains(t, err, "expired token")
 	assert.Equal(t, []recordedHint{escHint}, rec.seen)
 }
 

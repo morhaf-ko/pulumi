@@ -48,9 +48,8 @@ class _HintEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeW
     """
 
 class Hint(_Hint, metaclass=_HintEnumTypeWrapper):
-    """`Hint` names a product hint that is relevant to a failure a provider reports, either in a
-    [](pulumirpc.CheckFailure) or in a [](pulumirpc.HintDetail) attached to an error. A product hint points the user to a
-    Pulumi feature that helps with this kind of failure. The provider says which hint is relevant and what it says, and
+    """`Hint` names a product hint that is relevant to a [](pulumirpc.CheckFailure) a provider reports. A product hint points
+    the user to a Pulumi feature that helps with this kind of failure. The provider says which hint is relevant and what it says, and
     the engine decides whether to show it.
     """
 
@@ -1073,30 +1072,6 @@ class CheckFailure(google.protobuf.message.Message):
     def ClearField(self, field_name: typing.Literal["hint", b"hint", "hint_message", b"hint_message", "property", b"property", "reason", b"reason"]) -> None: ...
 
 global___CheckFailure = CheckFailure
-
-@typing.final
-class HintDetail(google.protobuf.message.Message):
-    """`HintDetail` is a type of error detail that a provider may attach to an error it returns from any call, such as
-    [](pulumirpc.ResourceProvider.Configure), to say which product hint is relevant to the failure.
-    """
-
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor
-
-    HINT_FIELD_NUMBER: builtins.int
-    MESSAGE_FIELD_NUMBER: builtins.int
-    hint: global___Hint.ValueType
-    """The product hint."""
-    message: builtins.str
-    """The text of the product hint. The engine shows it if it decides to show the hint."""
-    def __init__(
-        self,
-        *,
-        hint: global___Hint.ValueType = ...,
-        message: builtins.str = ...,
-    ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["hint", b"hint", "message", b"message"]) -> None: ...
-
-global___HintDetail = HintDetail
 
 @typing.final
 class DiffRequest(google.protobuf.message.Message):

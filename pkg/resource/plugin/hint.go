@@ -15,9 +15,6 @@
 package plugin
 
 import (
-	"errors"
-
-	"github.com/pulumi/pulumi/sdk/v3/go/common/util/rpcutil/rpcerror"
 	pulumirpc "github.com/pulumi/pulumi/sdk/v3/proto/go"
 )
 
@@ -54,34 +51,6 @@ func (h Hint) rpc() pulumirpc.Hint {
 	default:
 		return pulumirpc.Hint_HINT_UNSPECIFIED
 	}
-}
-
-// HintOf returns the hint and its message that a provider attached to err as a HintDetail. It returns
-// HintUnspecified for errors without such a detail.
-func HintOf(err error) (Hint, string) {
-	if err == nil {
-		return HintUnspecified, ""
-	}
-	rpcErr, ok := rpcerror.FromError(err)
-	if !ok {
-		if rpcErr, ok = errors.AsType[*rpcerror.Error](err); !ok {
-			return HintUnspecified, ""
-		}
-	}
-	for _, d := range rpcErr.Details() {
-		if detail, ok := d.(*pulumirpc.HintDetail); ok {
-			if hint := hintFromRPC(detail.GetHint()); hint != HintUnspecified {
-				return hint, detail.GetMessage()
-			}
-		}
-	}
-	return HintUnspecified, ""
-}
-
-// WithHint attaches a HintDetail with hint and its message to err, which must be a gRPC status error such as one
-// made by [rpcerror.New].
-func WithHint(err error, hint Hint, message string) error {
-	return rpcerror.WithDetails(err, &pulumirpc.HintDetail{Hint: hint.rpc(), Message: message})
 }
 
 // HintRecorder is told about each hint that a provider reports for a failure. Set it on [Context.HintRecorder].

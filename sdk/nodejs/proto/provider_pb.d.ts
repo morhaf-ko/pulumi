@@ -777,29 +777,6 @@ export namespace CheckFailure {
     }
 }
 
-export class HintDetail extends jspb.Message { 
-    getHint(): Hint;
-    setHint(value: Hint): HintDetail;
-    getMessage(): string;
-    setMessage(value: string): HintDetail;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): HintDetail.AsObject;
-    static toObject(includeInstance: boolean, msg: HintDetail): HintDetail.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: HintDetail, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): HintDetail;
-    static deserializeBinaryFromReader(message: HintDetail, reader: jspb.BinaryReader): HintDetail;
-}
-
-export namespace HintDetail {
-    export type AsObject = {
-        hint: Hint,
-        message: string,
-    }
-}
-
 export class DiffRequest extends jspb.Message { 
     getId(): string;
     setId(value: string): DiffRequest;

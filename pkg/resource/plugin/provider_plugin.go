@@ -746,7 +746,6 @@ func (p *provider) CheckConfig(ctx context.Context, req CheckConfigRequest) (Che
 		}
 		logging.V(8).Infof("%s provider received rpc error `%s`: `%s`", label, rpcError.Code(),
 			rpcError.Message())
-		p.recordHint(HintOf(err))
 		return CheckConfigResponse{}, err
 	}
 
@@ -1149,7 +1148,6 @@ func (p *provider) Configure(ctx context.Context, req ConfigureRequest) (Configu
 	if err != nil {
 		rpcError := rpcerror.Convert(err)
 		logging.V(7).Infof("%s failed: err=%v", label, rpcError.Message())
-		p.recordHint(HintOf(err))
 		err = createConfigureError(rpcError)
 		p.configSource.MustReject(err)
 		return ConfigureResponse{}, err
@@ -1485,7 +1483,6 @@ func (p *provider) Create(ctx context.Context, req CreateRequest) (CreateRespons
 		ResourceStatusToken:   req.ResourceStatusToken,
 	})
 	if err != nil {
-		p.recordHint(HintOf(err))
 		resourceStatus, id, liveObject, _, refreshBeforeUpdate, resourceError = parseError(err)
 		logging.V(7).Infof("%s failed: %v", label, resourceError)
 
@@ -1619,7 +1616,6 @@ func (p *provider) Read(ctx context.Context, req ReadRequest) (ReadResponse, err
 		OldViews:              oldViews,
 	})
 	if err != nil {
-		p.recordHint(HintOf(err))
 		resourceStatus, readID, liveObject, liveInputs, refreshBeforeUpdate, resourceError = parseError(err)
 		logging.V(7).Infof("%s failed: %v", label, err)
 
@@ -1816,7 +1812,6 @@ func (p *provider) Update(ctx context.Context, req UpdateRequest) (UpdateRespons
 		OldViews:              oldViews,
 	})
 	if err != nil {
-		p.recordHint(HintOf(err))
 		resourceStatus, _, liveObject, _, refreshBeforeUpdate, resourceError = parseError(err)
 		logging.V(7).Infof("%s failed: %v", label, resourceError)
 
