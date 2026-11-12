@@ -1677,7 +1677,8 @@ type CheckFailure struct {
 	Reason string `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`
 	// A product hint that is relevant to this failure, if any. The engine may show it to the user.
 	Hint Hint `protobuf:"varint,3,opt,name=hint,proto3,enum=pulumirpc.Hint" json:"hint,omitempty"`
-	// The text of the product hint in `hint`. The engine shows it if it decides to show the hint.
+	// The text of the product hint in `hint`. The engine shows it if it decides to show the hint. It may span several
+	// lines, for example to put a "Learn more" link on a line of its own.
 	HintMessage   string `protobuf:"bytes,4,opt,name=hint_message,json=hintMessage,proto3" json:"hint_message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

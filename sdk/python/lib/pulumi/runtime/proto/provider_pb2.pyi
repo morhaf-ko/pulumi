@@ -1060,7 +1060,9 @@ class CheckFailure(google.protobuf.message.Message):
     hint: global___Hint.ValueType
     """A product hint that is relevant to this failure, if any. The engine may show it to the user."""
     hint_message: builtins.str
-    """The text of the product hint in `hint`. The engine shows it if it decides to show the hint."""
+    """The text of the product hint in `hint`. The engine shows it if it decides to show the hint. It may span several
+    lines, for example to put a "Learn more" link on a line of its own.
+    """
     def __init__(
         self,
         *,
